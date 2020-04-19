@@ -598,3 +598,97 @@ java.lang.InterruptedException
 ```
 
 使用 interrupt 方式停止了线程。
+
+## 停止线程相关重要函数解析
+
+* static boolean interrupted()
+  * 此方法返回之后，会把线程的中断状态设置为 false，也就是说它把线程的中断状态给清除了，这是**唯一能清除线程状态的办法**。所以如果返回的 true，实际上它内部帮我们清除了，那么我们自然需要对这种行为作出处理，无论是抛出 InterruptedException 或者是再次执行 interrupt() 方法来中断它。
+* boolean isInterrupted()
+  * 和上面的方法一样，都是返回当前线程是否被中断，但**不同的是，此方法不会做清除工作**。
+* Thread.interrupted() 的目标对象是什么？
+  * 通过代码分析，代码如下：
+
+```java
+package threadcoreknowledge.stopthreads;
+
+/**
+ * 注意：Thread.interrupted() 方法的目标对象是 “当前线程”，而不管本方法来自于哪个对象
+ * @author mfh
+ * @date 2020/4/19 11:13
+ */
+public class RightWayInterrupted {
+    public static void main(String[] args) throws InterruptedException {
+        Thread t = new Thread(() -> {
+            for (; ; ) {
+
+            }
+        });
+        // 启动线程
+        t.start();
+        // 设置中断标志
+        t.interrupt();
+        // 获取中断标志
+        System.out.println("isInterrupted:" + t.isInterrupted());
+        // 获取中断标志并重置
+        System.out.println("isInterrupted:" + t.interrupted());
+        // 获取中断标志并重置
+        System.out.println("isInterrupted:" + Thread.interrupted());
+        // 获取中断标志
+        System.out.println("isInterrupted:" + t.isInterrupted());
+        t.join();
+        System.out.println("Main thread is over");
+    }
+}
+```
+
+结果：
+
+```java
+isInterrupted:true
+isInterrupted:false
+isInterrupted:false
+isInterrupted:true
+```
+
+分析：
+
+1. t.interrupt()，设置了中断标志
+
+2. t.isInterrupted()
+
+   1. 错误认识：由于上面设置了中断标志，所以获取到的是 true，已经中断了嘛。
+   2. 正确：以下是 isInterrupted() 方法的官方注释（部分）
+
+   >Tests whether the current thread has been interrupted. 
+
+   注意第一句话，测试**当前线程**是否已经被终止。这里说的很清楚，isInterrupted() 方法测试的是当前线程，那么调用`System.out.println("isInterrupted:" + t.interrupted());`的当前线程是主线程，主线程没有被设置中断，所以`t.interrupted()`返回 false。
+
+   isInterrupted() 方法并不关心是谁调用的，它只认当前线程的状态，而不是调用它的线程对象的状态。
+
+3. Thread.interrupted()，与上同理，当前线程为主线程，没有设置中断标志，所以返回 false，即没有中断。
+
+4. t.isInterrupted()，官方注释（部分）
+
+   >Tests whether this thread has been interrupted
+
+   isInterrupted() 方法关心的是**调用它的线程对象**是否被中断。由于刚开始执行了`t.interrupt()`，所以 t 线程已经被中断，所以返回 true
+
+## 停止线程面试常见问题
+
+### 如何停止线程
+
+1. 原理：用 interrupt 来请求，好处
+2. 想停止线程，要请求放，被停止放，子方法被调用放相互配合
+3. 最后再说错误处理的方法：stop/suspend 已被弃用了，volatile 的 boolean 无法处理长时间阻塞的情况
+
+用以上三点思路串一下：
+
+我们要用 interrupt 来请求，而不是 stop、suspend 或者 valotile。讲一下好处，比如数据安全。我们要把主动权交给被中断的线程。要想达到这样的效果，不光是我们要调用 interrupt 方法来中断它，还需要被中断的线程配合，这个配合是三方配合，分别是：请求方，被停止方，被调用方。请求方发出一个 interrupt 信号，被停止方必须在每次的循环中或者适当时候检查中断信号，并且在可能抛出 InterruptedException 的时候去处理这个信号，每一个线程它都应该做这样的事情，以便于自己可以被停止。如果我们是去写子方法的，子方法是会被我们线程所调用的，那么我们有两点最佳实践，第一是在方法层抛出exception，让其他人做进一步的处理；或者在收到中断信号之后把它再次设置为中断状态。这两种方式都可以。最后在延伸一下，如果不用 interrupt ，其他错误的方式会带来哪些后果。可以着重说一下 volatile 的 boolean 无法处理长时间阻塞的情况。
+
+## 如何处理不可中断的阻塞
+
+interrupt 方法不是万能的，之所以它能及时让我们响应中断，是由于 wait、sleep它是可以被我们所唤醒的，但是有些方法是不能被我们及时唤醒的。比如执行 SocketIO 操作时，即便发出 interrupt 信号，它也无法及时响应的。
+
+很遗憾，没有一个通用的解决方案。比如可重入锁，我们使用了它的 lock 方法，并且在 lock 时阻塞，是没有办法及时响应的，我们应该使用它提供的 lockInterruptibly 方法。也就是说在编写代码过程中，要使用那些可响应中断的方法，这是一种解决方案。针对 IO 的操作，也应该使用可响应中断的 IO 方法。
+
+针对特定的情况使用特定的方法，尽可能做到能响应中断，但没有一个万能的方式。
