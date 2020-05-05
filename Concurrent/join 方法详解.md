@@ -306,9 +306,11 @@ public final synchronized void join(long millis)
 
 主要的方法是调用了`wait(0)`，疑惑的是并没有地方调用notify，那么`wait(0)`之后是如何被唤醒的呢？这就要追溯到 jvm 源码，在线程 run 方法结束时，会调用 notify，这是jvm实现的。
 
-c++源码：起唤醒作用的代码：`lock.notify_all(thread);`
+以下是 c++ 源码：
 
 ![image-20200426172704270](join 方法详解.assets/image-20200426172704270.png)
+
+起唤醒作用的代码：`lock.notify_all(thread);`
 
 替代写法：
 
