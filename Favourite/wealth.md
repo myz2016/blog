@@ -27,3 +27,5 @@
 ---
 
 ### 原来我不懂JAVA集合-为何那么多继承和接口实现：https://www.jianshu.com/p/d704e421383e
+
+### 这么写参数校验(validator)就不会被劝退了~:https://juejin.im/post/5d3fbeb46fb9a06b317b3c48
