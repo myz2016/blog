@@ -499,7 +499,9 @@ public class WrongWayVolatileCantStop {
 
 ![image-20200418224052008](停止线程之interrupt.assets/image-20200418224052008.png)
 
-如上图所示，已经打印出了`消费者不需要更多的数据了`结果，但程序依然没有停止。正如此程序描述中所说的，线程阻塞后，无法使用 volatile 停止线程。
+如上图所示，已经打印出了`消费者不需要更多的数据了`结果，但程序依然没有停止。
+
+正如此程序描述中所说的：<font color=red>线程阻塞后，无法使用 volatile 停止线程</font>。
 
 原因：
 
